@@ -1,0 +1,19 @@
+# Compilation
+webserv
+build/
+obj/
+*.o
+*.a
+
+# Testers
+cgi_tester
+tester
+
+# Logs
+*.log
+
+# Subject and Correction
+*.pdf
+
+# VS Code
+.vscode/
