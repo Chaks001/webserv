@@ -138,6 +138,9 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
     }
 
     std::string path = getFullPath(*loc, request.getPath());
+    std::string extension;
+    size_t dot = path.find_last_of(".");
+    if (dot != std::string::npos) extension = path.substr(dot);
 
     if (method == "DELETE") {
         if (fileExists(path)) {
@@ -147,6 +150,20 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
             result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
         }
         return result;
+    }
+
+    if (!extension.empty()) {
+        std::map<std::string, std::string>::const_iterator cgiIt = loc->cgi_pass.find(extension);
+        if (cgiIt != loc->cgi_pass.end() && (method == "GET" || method == "POST")) {
+            if (!fileExists(path) || isDirectory(path)) {
+                result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
+                return result;
+            }
+            result.isCgi = true;
+            result.cgiScriptPath = path;
+            result.cgiInterpreterPath = cgiIt->second;
+            return result;
+        }
     }
 
     if (method == "POST" && !loc->upload_store.empty()) {
@@ -165,20 +182,6 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
         return result;
     }
 
-    std::string extension;
-    size_t dot = path.find_last_of(".");
-    if (dot != std::string::npos) extension = path.substr(dot);
-
-    if (!extension.empty()) {
-        std::map<std::string, std::string>::const_iterator cgiIt = loc->cgi_pass.find(extension);
-        if (cgiIt != loc->cgi_pass.end() && method == "POST") {
-            result.isCgi = true;
-            result.cgiScriptPath = path;
-            result.cgiInterpreterPath = cgiIt->second;
-            return result;
-        }
-    }
-
     if (method == "POST") {
         result.response.setStatus(200, "OK");
         result.response.setHeader("Content-Type", "text/plain");
@@ -193,14 +196,15 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
             result.response.setBody("");
             return result;
         }
-        if (!loc->index.empty() && fileExists(joinPaths(path, loc->index))) {
-            path = joinPaths(path, loc->index);
+        std::string indexFile = loc->index.empty() ? _config.index : loc->index;
+        if (!indexFile.empty() && fileExists(joinPaths(path, indexFile))) {
+            path = joinPaths(path, indexFile);
         } else if (loc->autoindex) {
             result.response.setStatus(200, "OK");
             result.response.setHeader("Content-Type", "text/html");
             result.response.setBody(generateAutoindex(path, request.getUri()));
             return result;
-        } else if (!loc->index.empty()) {
+        } else if (!indexFile.empty()) {
             result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
             return result;
         } else {

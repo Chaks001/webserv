@@ -12,6 +12,11 @@ tester
 # Logs
 *.log
 
+# Runtime uploads
+www/uploads/*
+!www/uploads/
+!www/uploads/upload_test.txt
+
 # Subject and Correction
 *.pdf
 

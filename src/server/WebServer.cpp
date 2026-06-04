@@ -4,7 +4,6 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
@@ -29,6 +28,39 @@ namespace {
 
     bool interrupted() {
         return errno == EINTR;
+    }
+
+    bool parseIpv4Address(const std::string &host, unsigned long &address) {
+        unsigned long octets[4] = {0, 0, 0, 0};
+        size_t start = 0;
+
+        for (size_t i = 0; i < 4; ++i) {
+            size_t end = host.find('.', start);
+            if ((i < 3 && end == std::string::npos)
+                || (i == 3 && end != std::string::npos)) {
+                return false;
+            }
+
+            std::string part = host.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            if (part.empty()) {
+                return false;
+            }
+
+            for (size_t j = 0; j < part.size(); ++j) {
+                if (!std::isdigit(static_cast<unsigned char>(part[j]))) {
+                    return false;
+                }
+                octets[i] = octets[i] * 10 + static_cast<unsigned long>(part[j] - '0');
+                if (octets[i] > 255) {
+                    return false;
+                }
+            }
+
+            start = end + 1;
+        }
+
+        address = htonl((octets[0] << 24) | (octets[1] << 16) | (octets[2] << 8) | octets[3]);
+        return true;
     }
 
     void closeSocketFd(int fd) {
@@ -160,9 +192,11 @@ void WebServer::setupServers() {
         struct sockaddr_in addr;
         std::memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = inet_addr(host.c_str());
-        if (addr.sin_addr.s_addr == INADDR_NONE && host != "255.255.255.255") {
-             addr.sin_addr.s_addr = INADDR_ANY;
+        unsigned long parsedAddress = 0;
+        if (parseIpv4Address(host, parsedAddress)) {
+            addr.sin_addr.s_addr = parsedAddress;
+        } else {
+            addr.sin_addr.s_addr = INADDR_ANY;
         }
         addr.sin_port = htons(port);
 
