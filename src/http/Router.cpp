@@ -199,6 +199,17 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
         std::string indexFile = loc->index.empty() ? _config.index : loc->index;
         if (!indexFile.empty() && fileExists(joinPaths(path, indexFile))) {
             path = joinPaths(path, indexFile);
+            size_t newDot = path.find_last_of(".");
+            if (newDot != std::string::npos) {
+                std::string newExt = path.substr(newDot);
+                std::map<std::string, std::string>::const_iterator cgiIt = loc->cgi_pass.find(newExt);
+                if (cgiIt != loc->cgi_pass.end() && (method == "GET" || method == "POST")) {
+                    result.isCgi = true;
+                    result.cgiScriptPath = path;
+                    result.cgiInterpreterPath = cgiIt->second;
+                    return result;
+                }
+            }
         } else if (loc->autoindex) {
             result.response.setStatus(200, "OK");
             result.response.setHeader("Content-Type", "text/html");
@@ -254,7 +265,7 @@ HttpResponse Router::makeErrorResponse(int statusCode, const std::string &reason
 }
 
 HttpResponse Router::buildCgiResponse(const std::string &cgiOutput, int exitStatus) const {
-    if (cgiOutput.empty() && exitStatus != 0) return makeErrorResponse(500, "Internal Server Error", "CGI failed");
+    if (exitStatus != 0) return makeErrorResponse(500, "Internal Server Error", "CGI failed");
     size_t separatorLength = 4;
     size_t headerEnd = cgiOutput.find("\r\n\r\n");
     if (headerEnd == std::string::npos) {

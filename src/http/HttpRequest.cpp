@@ -89,9 +89,17 @@ bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
 
     if (_headersParsed && !_bodyParsed) {
         if (_isChunked) {
+            if (maxBodySize != kUnlimitedBodySize && _rawBuffer.size() > maxBodySize + 64) {
+                setError(413, "Payload Too Large", "413 Payload Too Large");
+                return true;
+            }
             while (true) {
                 size_t pos = _rawBuffer.find("\r\n");
                 if (pos == std::string::npos) {
+                    if (_rawBuffer.size() > 32) {
+                        setError(400, "Bad Request", "400 Bad Request");
+                        return true;
+                    }
                     break;
                 }
 

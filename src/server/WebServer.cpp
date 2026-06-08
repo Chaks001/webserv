@@ -2,6 +2,7 @@
 #include "HttpResponse.hpp"
 #include "Router.hpp"
 #include <iostream>
+#include <sstream>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <fcntl.h>
@@ -201,9 +202,11 @@ void WebServer::setupServers() {
         addr.sin_port = htons(port);
 
         if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+            int savedErrno = errno;
             close(sockfd);
-            std::cerr << "Error: Could not bind to " << host << ":" << port << std::endl;
-            continue; // Skip this one but keep going with others
+            std::ostringstream oss;
+            oss << "Failed to bind to " << host << ":" << port << " (" << strerror(savedErrno) << ")";
+            throw std::runtime_error(oss.str());
         }
 
         if (listen(sockfd, 128) < 0) {
@@ -346,7 +349,8 @@ void WebServer::handleClientRead(int clientFd) {
 
     ClientConnection &conn = _clients[clientFd];
     
-    conn.request.parse(buffer, bytesRead);
+    conn.request.parse(buffer, static_cast<size_t>(bytesRead),
+        static_cast<size_t>(effectiveClientMaxBodySize(conn.configPool[0], conn.request.getPath())));
 
     if (conn.request.hasError()) {
         Router router(conn.activeConfig);
