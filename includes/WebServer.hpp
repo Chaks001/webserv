@@ -3,6 +3,7 @@
 
 #include "ServerConfig.hpp"
 #include "HttpRequest.hpp"
+#include "HttpResponse.hpp"
 #include "CgiHandler.hpp"
 #include <csignal>
 #include <vector>

@@ -1,7 +1,6 @@
 #include "HttpRequest.hpp"
 #include <sstream>
 #include <cstdlib>
-#include <algorithm>
 #include <cctype>
 
 namespace {
@@ -24,10 +23,6 @@ HttpRequest::HttpRequest()
       _isChunked(false) {}
 
 HttpRequest::~HttpRequest() {}
-
-bool HttpRequest::parse(const char *data, size_t size) {
-    return parse(data, size, kUnlimitedBodySize);
-}
 
 bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
     if (hasError()) {
@@ -55,6 +50,12 @@ bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
                     line.erase(line.size() - 1);
                 }
                 parseRequestLine(line);
+                if (hasError()) {
+                    return true;
+                }
+            } else {
+                setError(400, "Bad Request", "400 Bad Request");
+                return true;
             }
 
             while (std::getline(ss, line)) {
@@ -151,6 +152,11 @@ bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
 void HttpRequest::parseRequestLine(const std::string &line) {
     std::stringstream ss(line);
     ss >> _method >> _uri >> _version;
+
+    if (_method.empty() || _uri.empty() || _version.empty() || _uri[0] != '/') {
+        setError(400, "Bad Request", "400 Bad Request");
+        return;
+    }
 
     size_t queryPos = _uri.find('?');
     if (queryPos != std::string::npos) {

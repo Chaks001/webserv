@@ -7,12 +7,11 @@
 #include <netinet/in.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <errno.h>
+#include <cerrno>
 #include <sys/wait.h>
-#include <signal.h>
+#include <csignal>
 #include <cstring>
 #include <stdexcept>
-#include <algorithm>
 #include <ctime>
 #include <cstdlib>
 #include <cctype>
@@ -390,13 +389,18 @@ void WebServer::handleClientRead(int clientFd) {
         return;
     }
 
-    RouteResult result = router.resolveRequest(conn.request);
-    if (result.isCgi) {
-        startCgiRequest(clientFd, conn.request, result.cgiScriptPath, result.cgiInterpreterPath);
-        return;
-    }
+    try {
+        RouteResult result = router.resolveRequest(conn.request);
+        if (result.isCgi) {
+            startCgiRequest(clientFd, conn.request, result.cgiScriptPath, result.cgiInterpreterPath);
+            return;
+        }
 
-    queueResponse(clientFd, result.response, shouldCloseConnection(conn.request));
+        queueResponse(clientFd, result.response, shouldCloseConnection(conn.request));
+    } catch (const std::exception &e) {
+        std::cerr << "Request handling error: " << e.what() << std::endl;
+        queueResponse(clientFd, router.makeErrorResponse(500, "Internal Server Error", "500 Internal Server Error"), true);
+    }
 }
 
 void WebServer::handleClientWrite(int clientFd) {

@@ -35,7 +35,6 @@ public:
     RouteResult resolveRequest(const HttpRequest &request) const;
     HttpResponse makeErrorResponse(int statusCode, const std::string &reason, const std::string &defaultBody) const;
     HttpResponse buildCgiResponse(const std::string &cgiOutput, int exitStatus) const;
-    HttpResponse handleRequest(const HttpRequest &request);
 };
 
 #endif

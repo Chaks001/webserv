@@ -3,7 +3,6 @@
 
 #include <string>
 #include <map>
-#include <iostream>
 
 class HttpRequest {
 private:
@@ -33,7 +32,6 @@ public:
     HttpRequest();
     ~HttpRequest();
 
-    bool parse(const char *data, size_t size);
     bool parse(const char *data, size_t size, size_t maxBodySize);
     bool isComplete() const;
     bool hasError() const;

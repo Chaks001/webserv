@@ -1,5 +1,4 @@
 #include "CgiHandler.hpp"
-#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <sstream>
@@ -7,7 +6,7 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <fcntl.h>
-#include <limits.h>
+#include <climits>
 
 namespace {
     bool setNonBlocking(int fd) {

@@ -2,7 +2,6 @@
 #define CGIHANDLER_HPP
 
 #include "HttpRequest.hpp"
-#include "HttpResponse.hpp"
 #include "ServerConfig.hpp"
 #include <string>
 #include <map>

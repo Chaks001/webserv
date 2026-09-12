@@ -3,9 +3,7 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <dirent.h>
-#include <algorithm>
 #include <cstdio>
-#include <cstdlib>
 
 namespace {
     bool hasSuffix(const std::string &value, const std::string &suffix) {
@@ -155,7 +153,10 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
     if (!extension.empty()) {
         std::map<std::string, std::string>::const_iterator cgiIt = loc->cgi_pass.find(extension);
         if (cgiIt != loc->cgi_pass.end() && (method == "GET" || method == "POST")) {
-            if (!fileExists(path) || isDirectory(path)) {
+            // Le routage CGI se fait par extension, pas par existence du fichier :
+            // un CGI peut etre un executable autonome qui gere lui-meme un script
+            // absent. Si le CGI echoue, son code de sortie remonte en 500.
+            if (isDirectory(path)) {
                 result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
                 return result;
             }
@@ -190,7 +191,8 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
     }
 
     if (isDirectory(path)) {
-        if (request.getUri()[request.getUri().length() - 1] != '/') {
+        const std::string &requestUri = request.getUri();
+        if (requestUri.empty() || requestUri[requestUri.size() - 1] != '/') {
             result.response.setStatus(301, "Moved Permanently");
             result.response.setHeader("Location", request.getUri() + "/");
             result.response.setBody("");
@@ -232,7 +234,6 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
         result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
     }
 
-    std::cout << "Response: " << result.response.getStatusCode() << " Path: " << path << std::endl;
     return result;
 }
 
@@ -302,12 +303,6 @@ HttpResponse Router::buildCgiResponse(const std::string &cgiOutput, int exitStat
     return response;
 }
 
-HttpResponse Router::handleRequest(const HttpRequest &request) {
-    RouteResult result = resolveRequest(request);
-    if (result.isCgi) return makeErrorResponse(500, "Internal Server Error", "CGI handled elsewhere");
-    return result.response;
-}
-
 const LocationConfig *Router::matchLocation(const std::string &uri) const {
     const LocationConfig *bestMatch = NULL;
     size_t bestLen = 0;
@@ -332,7 +327,7 @@ bool Router::isMethodAllowed(const LocationConfig &loc, const std::string &metho
 
 std::string Router::getFullPath(const LocationConfig &loc, const std::string &uri) const {
     std::string root = loc.root.empty() ? _config.root : loc.root;
-    std::string suffix = uri.substr(loc.path.size());
+    std::string suffix = uri.size() >= loc.path.size() ? uri.substr(loc.path.size()) : std::string();
     if (!suffix.empty() && suffix[0] == '/') suffix.erase(0, 1);
     return joinPaths(root, suffix);
 }
