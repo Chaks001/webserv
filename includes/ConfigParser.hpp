@@ -6,7 +6,6 @@
 #include <vector>
 #include <fstream>
 #include <sstream>
-#include <cstdlib>
 
 class ConfigParser {
 private:
@@ -14,6 +13,8 @@ private:
     std::vector<ServerConfig> _servers;
 
     void parseFile();
+    void validateServers() const;
+    unsigned long parseNumericValue(std::stringstream &ss, const std::string &directive);
     void parseServerBlock(std::stringstream &ss);
     void parseLocationBlock(std::stringstream &ss, ServerConfig &server);
     std::string parseValue(std::stringstream &ss);

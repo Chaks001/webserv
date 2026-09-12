@@ -1,12 +1,48 @@
 #include "ConfigParser.hpp"
 #include <iostream>
 #include <stdexcept>
+#include <cctype>
+#include <cstdlib>
 
 ConfigParser::ConfigParser(const std::string &path) : _configPath(path) {
     parseFile();
+    validateServers();
+}
+
+void ConfigParser::validateServers() const {
+    if (_servers.empty()) {
+        throw std::runtime_error("Config file contains no server block");
+    }
+    for (size_t i = 0; i < _servers.size(); ++i) {
+        for (size_t j = i + 1; j < _servers.size(); ++j) {
+            if (_servers[i].host == _servers[j].host
+                && _servers[i].port == _servers[j].port
+                && _servers[i].server_name == _servers[j].server_name) {
+                std::stringstream oss;
+                oss << "Duplicate server: " << _servers[i].host << ":" << _servers[i].port
+                    << " with server_name '" << _servers[i].server_name << "' is defined more than once";
+                throw std::runtime_error(oss.str());
+            }
+        }
+    }
 }
 
 ConfigParser::~ConfigParser() {}
+
+// Lit une valeur numerique et refuse tout ce qui n'est pas une suite de chiffres
+// (un "-1" lu directement dans un unsigned long deviendrait ULONG_MAX en silence).
+unsigned long ConfigParser::parseNumericValue(std::stringstream &ss, const std::string &directive) {
+    std::string value = parseValue(ss);
+    if (value.empty()) {
+        throw std::runtime_error(directive + " requires a numeric value");
+    }
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (!std::isdigit(static_cast<unsigned char>(value[i]))) {
+            throw std::runtime_error(directive + " must be a positive number, got: " + value);
+        }
+    }
+    return std::strtoul(value.c_str(), NULL, 10);
+}
 
 const std::vector<ServerConfig> &ConfigParser::getServers() const {
     return _servers;
@@ -61,8 +97,13 @@ void ConfigParser::parseServerBlock(std::stringstream &ss) {
             _servers.push_back(server);
             return;
         } else if (token == "listen") {
-            ss >> server.port;
-            std::string semi; ss >> semi;
+            unsigned long parsedPort = parseNumericValue(ss, "listen");
+            if (parsedPort < 1 || parsedPort > 65535) {
+                std::stringstream oss;
+                oss << "listen port out of range (1-65535): " << parsedPort;
+                throw std::runtime_error(oss.str());
+            }
+            server.port = static_cast<int>(parsedPort);
         } else if (token == "server_name") {
             server.server_name = parseValue(ss);
         } else if (token == "host") {
@@ -72,8 +113,7 @@ void ConfigParser::parseServerBlock(std::stringstream &ss) {
         } else if (token == "index") {
             server.index = parseValue(ss);
         } else if (token == "client_max_body_size") {
-            ss >> server.client_max_body_size;
-            std::string semi; ss >> semi;
+            server.client_max_body_size = parseNumericValue(ss, "client_max_body_size");
         } else if (token == "error_page") {
             int code;
             ss >> code;
@@ -123,9 +163,8 @@ void ConfigParser::parseLocationBlock(std::stringstream &ss, ServerConfig &serve
             ss >> ext;
             loc.cgi_pass[ext] = parseValue(ss);
         } else if (token == "client_max_body_size") {
-            ss >> loc.client_max_body_size;
+            loc.client_max_body_size = parseNumericValue(ss, "client_max_body_size");
             loc.has_client_max_body_size = true;
-            std::string semi; ss >> semi;
         }
     }
     throw std::runtime_error("Unexpected end of file inside location block");
