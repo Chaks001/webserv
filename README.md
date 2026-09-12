@@ -12,7 +12,6 @@ make
 
 Cela générera l'exécutable `webserv`.
 
-> **Note pour les utilisateurs Windows** : Le projet est conçu pour Linux mais inclut des couches de compatibilité pour Windows (MinGW). Utilisez `make re` si vous rencontrez des problèmes.
 
 ## Utilisation
 
@@ -69,10 +68,9 @@ Pour tester le CGI (nécessite Python installé) :
 ```bash
 curl -v http://localhost:8080/test.py
 ```
-> **Note** : Sur Windows, l'exécution CGI est simulée (stub) et renverra une erreur 500 ou un message "Not supported". Sur Linux, le script sera exécuté.
 
 ## Fonctionnalités Implémentées
-- **E/S Non-bloquantes** : Utilise `poll()` (ou `WSAPoll` sur Windows) pour le multiplexage d'événements.
+- **E/S Non-bloquantes** : Utilise `poll()` pour le multiplexage d'événements.
 - **Méthodes HTTP** : GET, POST, DELETE.
 - **Encodage Chunked** : Décode les corps de requêtes chunked.
 - **CGI** : Support pour l'exécution de scripts dynamiques (Linux).
