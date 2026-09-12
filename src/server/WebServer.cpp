@@ -164,7 +164,6 @@ bool WebServer::isShutdownRequested() {
 }
 
 void WebServer::setupServers() {
-    // Group configs by host:port
     std::map<std::pair<std::string, int>, std::vector<ServerConfig> > grouped;
     for (size_t i = 0; i < _configs.size(); ++i) {
         std::string host = _configs[i].host.empty() ? "0.0.0.0" : _configs[i].host;
@@ -322,7 +321,6 @@ const ServerConfig& WebServer::selectConfig(const ClientConnection &conn, const 
         return conn.configPool[0];
     }
 
-    // Extract hostname from header (remove port if present)
     std::string host = hostHeader;
     size_t colon = host.find(':');
     if (colon != std::string::npos) {
@@ -334,7 +332,7 @@ const ServerConfig& WebServer::selectConfig(const ClientConnection &conn, const 
             return conn.configPool[i];
         }
     }
-    return conn.configPool[0]; // Default to first config
+    return conn.configPool[0];
 }
 
 void WebServer::handleClientRead(int clientFd) {
@@ -367,10 +365,8 @@ void WebServer::handleClientRead(int clientFd) {
         return;
     }
 
-    // Now that headers are complete, select the final config based on Host header
     std::string hostHeader = conn.request.getHeader("Host");
     
-    // HTTP/1.1 requires Host header
     if (conn.request.getVersion() == "HTTP/1.1" && hostHeader.empty()) {
         Router router(conn.activeConfig);
         queueResponse(clientFd, router.makeErrorResponse(400, "Bad Request", "Host header is required for HTTP/1.1"), true);

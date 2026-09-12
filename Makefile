@@ -6,7 +6,6 @@ CXXFLAGS = -Wall -Wextra -Werror -std=c++98
 SRC_DIR = src
 OBJ_DIR = build/obj
 
-# Recursively find all .cpp files in src directory
 SRCS = $(wildcard src/*.cpp src/*/*.cpp)
 OBJS = $(SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
 

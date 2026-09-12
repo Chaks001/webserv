@@ -29,8 +29,6 @@ void ConfigParser::validateServers() const {
 
 ConfigParser::~ConfigParser() {}
 
-// Lit une valeur numerique et refuse tout ce qui n'est pas une suite de chiffres
-// (un "-1" lu directement dans un unsigned long deviendrait ULONG_MAX en silence).
 unsigned long ConfigParser::parseNumericValue(std::stringstream &ss, const std::string &directive) {
     std::string value = parseValue(ss);
     if (value.empty()) {
@@ -48,7 +46,6 @@ const std::vector<ServerConfig> &ConfigParser::getServers() const {
     return _servers;
 }
 
-// Helper function to parse a value and strip trailing semicolon
 std::string ConfigParser::parseValue(std::stringstream &ss) {
     std::string value;
     ss >> value;

@@ -153,9 +153,6 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
     if (!extension.empty()) {
         std::map<std::string, std::string>::const_iterator cgiIt = loc->cgi_pass.find(extension);
         if (cgiIt != loc->cgi_pass.end() && (method == "GET" || method == "POST")) {
-            // Le routage CGI se fait par extension, pas par existence du fichier :
-            // un CGI peut etre un executable autonome qui gere lui-meme un script
-            // absent. Si le CGI echoue, son code de sortie remonte en 500.
             if (isDirectory(path)) {
                 result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
                 return result;

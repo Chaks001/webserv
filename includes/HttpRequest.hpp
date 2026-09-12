@@ -8,8 +8,8 @@ class HttpRequest {
 private:
     std::string _method;
     std::string _uri;
-    std::string _path;         // URI path without query string
-    std::string _queryString;  // Query string (after ?)
+    std::string _path;
+    std::string _queryString;
     std::string _version;
     std::map<std::string, std::string> _headers;
     std::string _body;
@@ -17,7 +17,6 @@ private:
     std::string _errorReason;
     std::string _errorBody;
     
-    // Parsing state
     std::string _rawBuffer;
     bool _headersParsed;
     bool _bodyParsed;

@@ -10,10 +10,9 @@
 #include <map>
 #include <poll.h>
 
-// Client connection state
 struct ClientConnection {
-    std::vector<ServerConfig> configPool; // All configs associated with this port
-    ServerConfig activeConfig;            // Currently selected config based on Host header
+    std::vector<ServerConfig> configPool;
+    ServerConfig activeConfig;
     HttpRequest request;
     std::string response;
     size_t responseOffset;
@@ -30,10 +29,10 @@ class WebServer {
 private:
     std::vector<ServerConfig> _configs;
     std::vector<struct pollfd> _fds;
-    std::map<int, std::vector<ServerConfig> > _socketConfigMap; // listening fd -> list of configs
-    std::map<int, ClientConnection> _clients;                  // client fd -> connection state
-    std::map<int, int> _cgiInputOwners;                        // pipe fd -> client fd
-    std::map<int, int> _cgiOutputOwners;                       // pipe fd -> client fd
+    std::map<int, std::vector<ServerConfig> > _socketConfigMap;
+    std::map<int, ClientConnection> _clients;
+    std::map<int, int> _cgiInputOwners;
+    std::map<int, int> _cgiOutputOwners;
     static volatile sig_atomic_t _shutdownRequested;
 
     void setupServers();
@@ -53,7 +52,6 @@ private:
     void cleanupCgi(ClientConnection &conn);
     void reapFinishedCgi();
 
-    // Helper to select the right config based on Host header
     const ServerConfig& selectConfig(const ClientConnection &conn, const std::string &hostHeader);
 
 public:
