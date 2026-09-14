@@ -3,7 +3,10 @@
 #include <sstream>
 #include <sys/stat.h>
 #include <dirent.h>
+#include <unistd.h>
 #include <cstdio>
+#include <vector>
+#include <utility>
 
 namespace {
     bool hasSuffix(const std::string &value, const std::string &suffix) {
@@ -33,6 +36,10 @@ namespace {
             case 201: return "Created";
             case 204: return "No Content";
             case 301: return "Moved Permanently";
+            case 302: return "Found";
+            case 303: return "See Other";
+            case 307: return "Temporary Redirect";
+            case 308: return "Permanent Redirect";
             case 400: return "Bad Request";
             case 403: return "Forbidden";
             case 404: return "Not Found";
@@ -74,7 +81,7 @@ namespace {
             if (path[i] == '%' && i + 2 < path.size()) {
                 int high = hexValue(path[i + 1]);
                 int low = hexValue(path[i + 2]);
-                if (high >= 0 && low >= 0) {
+                if (high >= 0 && low >= 0 && high * 16 + low != 0) {
                     decoded += static_cast<char>(high * 16 + low);
                     i += 2;
                     continue;
@@ -98,6 +105,68 @@ namespace {
                 break;
             }
             start = end + 1;
+        }
+        return false;
+    }
+
+    std::string headerParameter(const std::string &value, const std::string &name) {
+        const std::string key = name + "=";
+        size_t pos = value.find(key);
+        while (pos != std::string::npos) {
+            if (pos == 0 || value[pos - 1] == ';' || value[pos - 1] == ' ') {
+                size_t start = pos + key.size();
+                if (start < value.size() && value[start] == '"') {
+                    size_t closingQuote = value.find('"', start + 1);
+                    return closingQuote == std::string::npos ? std::string() : value.substr(start + 1, closingQuote - start - 1);
+                }
+                size_t end = value.find_first_of("; \r\n", start);
+                return value.substr(start, end == std::string::npos ? std::string::npos : end - start);
+            }
+            pos = value.find(key, pos + 1);
+        }
+        return std::string();
+    }
+
+    std::string safeFileName(const std::string &name) {
+        size_t slash = name.find_last_of("/\\");
+        std::string base = slash == std::string::npos ? name : name.substr(slash + 1);
+        if (base == "." || base == "..") {
+            return std::string();
+        }
+        return base;
+    }
+
+    bool writeFile(const std::string &path, const std::string &data) {
+        std::ofstream file(path.c_str(), std::ios::binary);
+        if (!file.is_open()) {
+            return false;
+        }
+        file.write(data.c_str(), static_cast<std::streamsize>(data.size()));
+        return file.good();
+    }
+
+    bool parseMultipart(const std::string &body, const std::string &boundary,
+                        std::vector<std::pair<std::string, std::string> > &files) {
+        const std::string delimiter = "--" + boundary;
+        const std::string nextDelimiter = "\r\n" + delimiter;
+        size_t pos = body.find(delimiter);
+        while (pos != std::string::npos) {
+            pos += delimiter.size();
+            if (body.compare(pos, 2, "--") == 0) {
+                return true;
+            }
+            size_t headersEnd = body.find("\r\n\r\n", pos);
+            size_t next = body.find(nextDelimiter, headersEnd);
+            if (headersEnd == std::string::npos || next == std::string::npos) {
+                return false;
+            }
+            size_t contentStart = headersEnd + 4;
+            std::string filename = safeFileName(headerParameter(body.substr(pos, headersEnd - pos), "filename"));
+            if (!filename.empty()) {
+                std::string content = next > contentStart ? body.substr(contentStart, next - contentStart) : std::string();
+                files.push_back(std::make_pair(filename, content));
+            }
+            pos = next + 2;
         }
         return false;
     }
@@ -135,7 +204,7 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
         return result;
     }
 
-    std::string path = getFullPath(*loc, request.getPath());
+    std::string path = getFullPath(*loc, decodePercentEncodedPath(request.getPath()));
     std::string extension;
     size_t dot = path.find_last_of(".");
     if (dot != std::string::npos) extension = path.substr(dot);
@@ -165,18 +234,30 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
     }
 
     if (method == "POST" && !loc->upload_store.empty()) {
-        std::string filename = path.substr(path.find_last_of("/") + 1);
-        if (filename.empty()) filename = "uploaded_file";
-        std::string targetPath = joinPaths(loc->upload_store, filename);
-        std::ofstream outfile(targetPath.c_str(), std::ios::binary);
-        if (outfile.is_open()) {
-            outfile << request.getBody();
-            outfile.close();
-            result.response.setStatus(201, "Created");
-            result.response.setBody("File uploaded successfully");
+        const std::string contentType = request.getHeader("Content-Type");
+        if (contentType.find("multipart/form-data") == 0) {
+            const std::string boundary = headerParameter(contentType, "boundary");
+            std::vector<std::pair<std::string, std::string> > files;
+            if (boundary.empty() || !parseMultipart(request.getBody(), boundary, files) || files.empty()) {
+                result.response = makeErrorResponse(400, "Bad Request", "400 Bad Request");
+                return result;
+            }
+            for (size_t i = 0; i < files.size(); ++i) {
+                if (!writeFile(joinPaths(loc->upload_store, files[i].first), files[i].second)) {
+                    result.response = makeErrorResponse(500, "Internal Server Error", "Could not save file");
+                    return result;
+                }
+            }
         } else {
-            result.response = makeErrorResponse(500, "Internal Server Error", "Could not save file");
+            std::string filename = isDirectory(path) ? std::string() : path.substr(path.find_last_of("/") + 1);
+            if (filename.empty()) filename = "uploaded_file";
+            if (!writeFile(joinPaths(loc->upload_store, filename), request.getBody())) {
+                result.response = makeErrorResponse(500, "Internal Server Error", "Could not save file");
+                return result;
+            }
         }
+        result.response.setStatus(201, "Created");
+        result.response.setBody("File uploaded successfully");
         return result;
     }
 
@@ -223,12 +304,14 @@ RouteResult Router::resolveRequest(const HttpRequest &request) const {
         }
     }
 
-    if (fileExists(path)) {
+    if (!fileExists(path)) {
+        result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
+    } else if (access(path.c_str(), R_OK) != 0) {
+        result.response = makeErrorResponse(403, "Forbidden", "403 Forbidden");
+    } else {
         result.response.setStatus(200, "OK");
         result.response.setHeader("Content-Type", detectContentType(path));
         result.response.setBody(readFile(path));
-    } else {
-        result.response = makeErrorResponse(404, "Not Found", "404 Not Found");
     }
 
     return result;
@@ -271,13 +354,10 @@ HttpResponse Router::buildCgiResponse(const std::string &cgiOutput, int exitStat
         separatorLength = 2;
     }
     if (headerEnd == std::string::npos) {
-        if (exitStatus == 0) {
-            HttpResponse response;
-            response.setStatus(200, "OK");
-            response.setBody(cgiOutput);
-            return response;
-        }
-        return makeErrorResponse(500, "Internal Server Error", "Bad CGI Output");
+        HttpResponse response;
+        response.setStatus(200, "OK");
+        response.setBody(cgiOutput);
+        return response;
     }
     HttpResponse response;
     response.setStatus(200, "OK");

@@ -5,6 +5,7 @@
 
 namespace {
     const size_t kMaxHeaderSize = 64 * 1024;
+    const size_t kMaxChunkSize = 1024 * 1024 * 1024;
     const size_t kUnlimitedBodySize = static_cast<size_t>(-1);
 
     std::string toLower(std::string value) {
@@ -72,6 +73,10 @@ bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
 
             std::string cl = getHeader("Content-Length");
             if (!cl.empty()) {
+                if (cl.find_first_not_of("0123456789") != std::string::npos || cl.size() > 19) {
+                    setError(400, "Bad Request", "400 Bad Request");
+                    return true;
+                }
                 _contentLength = static_cast<size_t>(std::strtoul(cl.c_str(), NULL, 10));
                 if (maxBodySize != kUnlimitedBodySize && _contentLength > maxBodySize) {
                     setError(413, "Payload Too Large", "413 Payload Too Large");
@@ -112,6 +117,11 @@ bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
 
                 if (ss.fail()) {
                     setError(400, "Bad Request", "400 Bad Request");
+                    return true;
+                }
+
+                if (maxBodySize == kUnlimitedBodySize && chunkSize > kMaxChunkSize) {
+                    setError(413, "Payload Too Large", "413 Payload Too Large");
                     return true;
                 }
 

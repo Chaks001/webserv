@@ -44,6 +44,11 @@ Le fichier de configuration utilise une syntaxe similaire à nginx. Directives p
 
 ## Tests
 
+Les exemples ci-dessous supposent le serveur lancé avec `config/eval.conf` :
+```bash
+./webserv config/eval.conf
+```
+
 ### 1. Fichiers Statiques (GET)
 Ouvrez votre navigateur sur `http://localhost:8080/` ou utilisez curl :
 ```bash
@@ -51,16 +56,22 @@ curl -v http://localhost:8080/
 ```
 
 ### 2. Upload de Fichier (POST)
-Pour uploader un fichier (assurez-vous que le dossier `www/uploads` existe) :
+Depuis un formulaire HTML ou avec `-F`, le fichier est enregistré sous son nom d'origine :
 ```bash
-curl -v -X POST -d "Contenu du fichier" http://localhost:8080/uploaded_file.txt
+curl -v -F "file=@mon_fichier.txt" http://localhost:8080/uploads/
 ```
-Le fichier sera sauvegardé dans le répertoire `upload_store` configuré.
+Avec un corps brut, le nom vient de l'URL :
+```bash
+curl -v -X POST --data-binary "Contenu du fichier" http://localhost:8080/uploads/mon_fichier.txt
+```
+Le fichier est enregistré dans le répertoire `upload_store` configuré, puis récupérable :
+```bash
+curl -v http://localhost:8080/uploads/mon_fichier.txt
+```
 
 ### 3. Supprimer un Fichier (DELETE)
-Pour supprimer le fichier uploadé :
 ```bash
-curl -v -X DELETE http://localhost:8080/uploaded_file.txt
+curl -v -X DELETE http://localhost:8080/uploads/mon_fichier.txt
 ```
 
 ### 4. Exécution CGI

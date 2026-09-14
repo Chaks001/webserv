@@ -17,12 +17,11 @@ struct CgiProcess {
     int outputFd;
     size_t inputOffset;
     std::string output;
-    bool inputClosed;
     bool outputClosed;
     bool childExited;
     int exitStatus;
     bool timedOut;
-    time_t startedAt;
+    time_t lastActivityAt;
 
     CgiProcess();
 };

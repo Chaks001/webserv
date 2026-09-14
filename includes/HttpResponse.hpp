@@ -18,8 +18,6 @@ public:
     void setStatus(int code, const std::string &reason);
     void setHeader(const std::string &key, const std::string &value);
     void setBody(const std::string &body);
-    int getStatusCode() const { return _statusCode; }
-    
     std::string toString(bool includeBody = true) const;
 };
 

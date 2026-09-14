@@ -98,12 +98,11 @@ CgiProcess::CgiProcess()
       inputFd(-1),
       outputFd(-1),
       inputOffset(0),
-      inputClosed(false),
       outputClosed(false),
       childExited(false),
       exitStatus(0),
       timedOut(false),
-      startedAt(0) {}
+      lastActivityAt(0) {}
 
 CgiHandler::CgiHandler(const std::string &scriptPath, const std::string &interpreterPath)
     : _scriptPath(makeAbsolutePath(scriptPath)), _interpreterPath(makeAbsolutePath(interpreterPath)) {}
@@ -181,7 +180,7 @@ bool CgiHandler::launch(const HttpRequest &request, const ServerConfig &config, 
     process.pid = pid;
     process.inputFd = pipeIn[1];
     process.outputFd = pipeOut[0];
-    process.startedAt = time(NULL);
+    process.lastActivityAt = time(NULL);
     return true;
 }
 

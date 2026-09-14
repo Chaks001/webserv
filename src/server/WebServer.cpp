@@ -535,7 +535,6 @@ void WebServer::closeCgiInput(ClientConnection &conn, int fd) {
     if (conn.cgi.inputFd == fd) {
         conn.cgi.inputFd = -1;
     }
-    conn.cgi.inputClosed = true;
 }
 
 void WebServer::handleCgiWrite(int fd) {
@@ -570,6 +569,7 @@ void WebServer::handleCgiWrite(int fd) {
         return;
     }
 
+    conn.cgi.lastActivityAt = time(NULL);
     conn.cgi.inputOffset += static_cast<size_t>(written);
     if (conn.cgi.inputOffset >= body.size()) {
         closeCgiInput(conn, fd);
@@ -595,6 +595,7 @@ void WebServer::handleCgiRead(int fd) {
 
     ssize_t bytesRead = read(fd, buffer, sizeof(buffer));
     if (bytesRead > 0) {
+        conn.cgi.lastActivityAt = time(NULL);
         conn.cgi.output.append(buffer, bytesRead);
         return;
     }
@@ -669,7 +670,7 @@ void WebServer::reapFinishedCgi() {
             continue;
         }
 
-        if (conn.cgi.startedAt != 0 && now - conn.cgi.startedAt > kCgiTimeoutSeconds) {
+        if (conn.cgi.lastActivityAt != 0 && now - conn.cgi.lastActivityAt > kCgiTimeoutSeconds) {
             kill(conn.cgi.pid, SIGKILL);
             int timeoutStatus = 0;
             waitpid(conn.cgi.pid, &timeoutStatus, 0);
@@ -682,7 +683,6 @@ void WebServer::reapFinishedCgi() {
                 removePollFd(conn.cgi.inputFd);
                 _cgiInputOwners.erase(conn.cgi.inputFd);
                 conn.cgi.inputFd = -1;
-                conn.cgi.inputClosed = true;
             }
 
             if (conn.cgi.outputClosed) {
