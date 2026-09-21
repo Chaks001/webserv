@@ -174,16 +174,17 @@ void WebServer::setupServers() {
         std::string host = it->first.first;
         int port = it->first.second;
 
-        int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+        int sockfd = socket(AF_INET, SOCK_STREAM, 0); //IPV4 -> Créé un flux de communication continu --> Par défaut TCP => Créé un fd
         if (sockfd < 0) {
             throw std::runtime_error("Failed to create socket");
         }
 
         int opt = 1;
+        //option du socket --> Num de la socket --> Option only pour la socket actuelle --> Autorise moi à utiliser la meme adresse local réseau (port, host)  
         if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt)) < 0) {
             throw std::runtime_error("setsockopt failed");
         }
-
+        //fcntl --> modifie un fd --> Met à jour les flags en O_nonblock
         if (fcntl(sockfd, F_SETFL, O_NONBLOCK) < 0) {
             throw std::runtime_error("fcntl failed");
         }
@@ -192,12 +193,12 @@ void WebServer::setupServers() {
         std::memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         unsigned long parsedAddress = 0;
-        if (parseIpv4Address(host, parsedAddress)) {
-            addr.sin_addr.s_addr = parsedAddress;
-        } else {
-            addr.sin_addr.s_addr = INADDR_ANY;
+        if (!parseIpv4Address(host, parsedAddress)) {
+            close(sockfd);
+            throw std::runtime_error("Invalid host in configuration: " + host);
         }
-        addr.sin_port = htons(port);
+        addr.sin_addr.s_addr = parsedAddress;
+        addr.sin_port = htons(port); //transforme le port entier 16bit en format reseau (ordre des octets différent et imposé)
 
         if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
             int savedErrno = errno;
