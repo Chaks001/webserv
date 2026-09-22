@@ -21,6 +21,14 @@ void HttpResponse::setBody(const std::string &body) {
     setHeader("Content-Length", ss.str());
 }
 
+int HttpResponse::getStatusCode() const {
+    return _statusCode;
+}
+
+const std::string &HttpResponse::getReasonPhrase() const {
+    return _reasonPhrase;
+}
+
 std::string HttpResponse::toString(bool includeBody) const {
     std::stringstream ss;
     ss << "HTTP/1.1 " << _statusCode << " " << _reasonPhrase << "\r\n";

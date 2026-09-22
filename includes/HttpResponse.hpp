@@ -19,6 +19,9 @@ public:
     void setHeader(const std::string &key, const std::string &value);
     void setBody(const std::string &body);
     std::string toString(bool includeBody = true) const;
+
+    int getStatusCode() const;
+    const std::string &getReasonPhrase() const;
 };
 
 #endif

@@ -454,6 +454,9 @@ void WebServer::queueResponse(int clientFd, HttpResponse response, bool closeAft
     conn.awaitingCgi = false;
     response.setHeader("Connection", closeAfterSend ? "close" : "keep-alive");
     
+    std::cout << "Status: " << response.getStatusCode() << " " << response.getReasonPhrase()
+              << ", URI: " << conn.request.getUri() << std::endl;
+
     conn.response = response.toString(conn.request.getMethod() != "HEAD");
     conn.responseOffset = 0;
     updateClientEvents(clientFd);
