@@ -5,6 +5,7 @@
 
 namespace {
     const size_t kMaxHeaderSize = 64 * 1024;
+    const size_t kMaxUriSize = 8 * 1024;
     const size_t kMaxChunkSize = 1024 * 1024 * 1024;
     const size_t kUnlimitedBodySize = static_cast<size_t>(-1);
 
@@ -38,10 +39,16 @@ bool HttpRequest::parse(const char *data, size_t size, size_t maxBodySize) {
             return true;
         }
 
+        size_t separatorLength = 4;
         size_t headerEnd = _rawBuffer.find("\r\n\r\n");
+        size_t lineFeedEnd = _rawBuffer.find("\n\n");
+        if (lineFeedEnd != std::string::npos && (headerEnd == std::string::npos || lineFeedEnd < headerEnd)) {
+            headerEnd = lineFeedEnd;
+            separatorLength = 2;
+        }
         if (headerEnd != std::string::npos) {
             std::string headerPart = _rawBuffer.substr(0, headerEnd);
-            std::string bodyPart = _rawBuffer.substr(headerEnd + 4);
+            std::string bodyPart = _rawBuffer.substr(headerEnd + separatorLength);
 
             std::stringstream ss(headerPart);
             std::string line;
@@ -168,6 +175,16 @@ void HttpRequest::parseRequestLine(const std::string &line) {
         return;
     }
 
+    if (_uri.size() > kMaxUriSize) {
+        setError(414, "URI Too Long", "414 URI Too Long");
+        return;
+    }
+
+    if (_version != "HTTP/1.0" && _version != "HTTP/1.1") {
+        setError(505, "HTTP Version Not Supported", "505 HTTP Version Not Supported");
+        return;
+    }
+
     size_t queryPos = _uri.find('?');
     if (queryPos != std::string::npos) {
         _path = _uri.substr(0, queryPos);
@@ -191,6 +208,12 @@ void HttpRequest::parseHeader(const std::string &line) {
         size_t last = value.find_last_not_of(" \t");
         if (last != std::string::npos) {
             value = value.substr(0, last + 1);
+        }
+
+        std::string lowered = toLower(key);
+        if ((lowered == "host" || lowered == "content-length") && !getHeader(key).empty()) {
+            setError(400, "Bad Request", "400 Bad Request");
+            return;
         }
 
         _headers[key] = value;
