@@ -202,11 +202,11 @@ void HttpRequest::parseHeader(const std::string &line) {
         std::string value = line.substr(colon + 1);
 
         size_t first = value.find_first_not_of(" \t");
-        if (first != std::string::npos) {
+        if (first == std::string::npos) {
+            value.clear();
+        } else {
             value = value.substr(first);
-        }
-        size_t last = value.find_last_not_of(" \t");
-        if (last != std::string::npos) {
+            size_t last = value.find_last_not_of(" \t");
             value = value.substr(0, last + 1);
         }
 
