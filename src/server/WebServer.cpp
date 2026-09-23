@@ -18,6 +18,7 @@
 
 namespace {
     const time_t kCgiTimeoutSeconds = 30;
+    const time_t kClientTimeoutSeconds = 30;
 
     std::string toLower(std::string value) {
         for (size_t i = 0; i < value.size(); ++i) {
@@ -288,6 +289,7 @@ void WebServer::runEventLoop() {
         }
 
         reapFinishedCgi();
+        closeIdleClients();
     }
 }
 
@@ -347,6 +349,10 @@ void WebServer::handleClientRead(int clientFd) {
 
     ClientConnection &conn = _clients[clientFd];
     
+    conn.lastActivity = time(NULL);
+    if (conn.draining) {
+        return;
+    }
     conn.request.parse(buffer, static_cast<size_t>(bytesRead),
         static_cast<size_t>(effectiveClientMaxBodySize(conn.configPool[0], conn.request.getPath())));
 
@@ -419,6 +425,7 @@ void WebServer::handleClientWrite(int clientFd) {
         return;
     }
 
+    conn.lastActivity = time(NULL);
     conn.responseOffset += static_cast<size_t>(bytesSent);
     if (conn.responseOffset < conn.response.size()) {
         updateClientEvents(clientFd);
@@ -429,7 +436,13 @@ void WebServer::handleClientWrite(int clientFd) {
     conn.responseOffset = 0;
 
     if (conn.closeAfterSend) {
-        closeConnection(clientFd);
+        if (shutdown(clientFd, SHUT_WR) < 0) {
+            closeConnection(clientFd);
+            return;
+        }
+        conn.draining = true;
+        conn.drainStartedAt = time(NULL);
+        updateClientEvents(clientFd);
         return;
     }
 
@@ -448,10 +461,26 @@ void WebServer::closeConnection(int clientFd) {
     }
 }
 
+void WebServer::closeIdleClients() {
+    time_t now = time(NULL);
+    std::vector<int> idleClients;
+    for (std::map<int, ClientConnection>::iterator it = _clients.begin(); it != _clients.end(); ++it) {
+        time_t since = it->second.draining ? it->second.drainStartedAt : it->second.lastActivity;
+        if (!it->second.awaitingCgi && now - since > kClientTimeoutSeconds) {
+            idleClients.push_back(it->first);
+        }
+    }
+    for (size_t i = 0; i < idleClients.size(); ++i) {
+        std::cout << "Connection timed out: " << idleClients[i] << std::endl;
+        closeConnection(idleClients[i]);
+    }
+}
+
 void WebServer::queueResponse(int clientFd, HttpResponse response, bool closeAfterSend) {
     ClientConnection &conn = _clients[clientFd];
     conn.closeAfterSend = closeAfterSend;
     conn.awaitingCgi = false;
+    conn.lastActivity = time(NULL);
     response.setHeader("Connection", closeAfterSend ? "close" : "keep-alive");
     
     std::cout << "Status: " << response.getStatusCode() << " " << response.getReasonPhrase()

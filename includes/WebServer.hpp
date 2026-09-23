@@ -19,10 +19,16 @@ struct ClientConnection {
     bool closeAfterSend;
     bool awaitingCgi;
     CgiProcess cgi;
+    time_t lastActivity;
+    bool draining;
+    time_t drainStartedAt;
     
-    ClientConnection() : responseOffset(0), closeAfterSend(false), awaitingCgi(false) {}
+    ClientConnection()
+        : responseOffset(0), closeAfterSend(false), awaitingCgi(false), lastActivity(time(NULL)),
+          draining(false), drainStartedAt(0) {}
     ClientConnection(const std::vector<ServerConfig> &pool)
-        : configPool(pool), activeConfig(pool[0]), responseOffset(0), closeAfterSend(false), awaitingCgi(false) {}
+        : configPool(pool), activeConfig(pool[0]), responseOffset(0), closeAfterSend(false), awaitingCgi(false),
+          lastActivity(time(NULL)), draining(false), drainStartedAt(0) {}
 };
 
 class WebServer {
@@ -51,6 +57,7 @@ private:
     void finalizeCgiResponse(int clientFd);
     void cleanupCgi(ClientConnection &conn);
     void reapFinishedCgi();
+    void closeIdleClients();
 
     const ServerConfig& selectConfig(const ClientConnection &conn, const std::string &hostHeader);
 
