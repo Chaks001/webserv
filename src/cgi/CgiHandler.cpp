@@ -9,6 +9,8 @@
 #include <climits>
 
 namespace {
+    const int kMaxFd = 1024;
+
     bool setNonBlocking(int fd) {
         return fcntl(fd, F_SETFL, O_NONBLOCK) == 0;
     }
@@ -134,10 +136,9 @@ bool CgiHandler::launch(const HttpRequest &request, const ServerConfig &config, 
         dup2(pipeIn[0], STDIN_FILENO);
         dup2(pipeOut[1], STDOUT_FILENO);
 
-        close(pipeIn[0]);
-        close(pipeIn[1]);
-        close(pipeOut[0]);
-        close(pipeOut[1]);
+        for (int fd = 3; fd < kMaxFd; ++fd) {
+            close(fd);
+        }
 
         char **envp = createEnvArray();
         char *argv[3] = {NULL, NULL, NULL};
