@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Webserv — Console de soutenance</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #111827, #1f2937);
+      color: #f8fafc;
+    }
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 16px 7%;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      position: sticky;
+      top: 0;
+      background: rgba(17,24,39,.94);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+    .logo { font-size: 22px; font-weight: 800; letter-spacing: 2px; }
+    .nav-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .badge {
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(56,189,248,.12);
+      color: #7dd3fc;
+      border: 1px solid rgba(56,189,248,.25);
+      font-size: 13px;
+    }
+    .badge.detecting { background: rgba(148,163,184,.12); color: #cbd5e1; border-color: rgba(148,163,184,.25); }
+    .badge.warn { background: rgba(251,191,36,.12); color: #fcd34d; border-color: rgba(251,191,36,.3); }
+    select {
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-family: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 44px 24px 18px;
+      text-align: center;
+    }
+    .hero h1 { font-size: clamp(34px, 6vw, 56px); margin-bottom: 14px; }
+    .hero h1 span { color: #38bdf8; }
+    .hero p {
+      max-width: 800px;
+      margin: 0 auto;
+      color: #cbd5e1;
+      line-height: 1.65;
+      font-size: 17px;
+    }
+    code {
+      background: rgba(255,255,255,.08);
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .92em;
+    }
+    .profile-bar {
+      max-width: 1100px;
+      margin: 18px auto 0;
+      padding: 0 24px;
+    }
+    .profile-bar div {
+      background: rgba(56,189,248,.07);
+      border: 1px solid rgba(56,189,248,.18);
+      border-radius: 12px;
+      padding: 14px 18px;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    .grid {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 20px 24px 10px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: rgba(255,255,255,.055);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 14px;
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+    }
+    .card h2 { font-size: 19px; margin-bottom: 8px; }
+    .card p { color: #94a3b8; line-height: 1.5; margin-bottom: 16px; font-size: 14px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; }
+    button, .link-button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: .2s;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 13.5px;
+      font-family: inherit;
+    }
+    button:hover, .link-button:hover { transform: translateY(-2px); }
+    .get { background: #22c55e; color: #052e16; }
+    .post { background: #38bdf8; color: #082f49; }
+    .delete { background: #fb7185; color: #4c0519; }
+    .neutral { background: #475569; color: #fff; }
+    input, textarea {
+      width: 100%;
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 0 0 12px;
+      outline: none;
+      font-family: inherit;
+      font-size: 14px;
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    input:focus, textarea:focus { border-color: #38bdf8; }
+    .console-wrap { max-width: 1100px; margin: 24px auto 60px; padding: 0 24px; }
+    .console {
+      background: #020617;
+      border: 1px solid #334155;
+      border-radius: 14px;
+      overflow: hidden;
+      position: sticky;
+      top: 74px;
+    }
+    .console-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid #1e293b;
+      color: #94a3b8;
+      font-size: 14px;
+    }
+    #lastStatus { font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #1e293b; color: #cbd5e1; }
+    #lastStatus.ok { background: rgba(34,197,94,.15); color: #86efac; }
+    #lastStatus.ko { background: rgba(251,113,133,.15); color: #fda4af; }
+    pre {
+      min-height: 240px;
+      max-height: 460px;
+      overflow: auto;
+      padding: 18px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      line-height: 1.5;
+      color: #dbeafe;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 13px;
+    }
+    .hint { font-size: 12.5px; color: #64748b; margin-top: 8px; }
+    .expect {
+      display: inline-block;
+      font-size: 12px;
+      color: #94a3b8;
+      border: 1px dashed rgba(255,255,255,.18);
+      border-radius: 6px;
+      padding: 4px 9px;
+      margin-top: 12px;
+      align-self: flex-start;
+      line-height: 1.4;
+    }
+    .cmd { max-width: 1100px; margin: 0 auto; padding: 10px 24px 0; }
+    .cmd .card { display: block; }
+    .cmd ul { list-style: none; }
+    .cmd li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      font-size: 13px;
+      color: #cbd5e1;
+      flex-wrap: wrap;
+    }
+    .cmd li:last-child { border-bottom: 0; }
+    .cmd li code { color: #7dd3fc; }
+    footer {
+      text-align: center;
+      padding: 24px;
+      color: #64748b;
+      border-top: 1px solid rgba(255,255,255,.08);
+    }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+      nav { padding: 14px 24px; }
+      .console { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">WEBSERV</div>
+    <div class="nav-right">
+      <span class="badge detecting" id="configBadge">détection de la config…</span>
+      <select id="profileSelect" title="Config chargée par le serveur"></select>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <h1>Console <span>Webserv</span></h1>
+    <p>
+      Cette page envoie de vraies requêtes HTTP au serveur qui la sert. Elle détecte la
+      configuration chargée et ajuste les codes attendus en conséquence. Garde les DevTools
+      (onglet Réseau) ouverts, et le terminal du serveur visible pour les logs.
+    </p>
+  </section>
+
+  <section class="profile-bar">
+    <div id="profileInfo"></div>
+  </section>
+
+  <main class="grid">
+    <section class="card">
+      <h2>1. GET statiques</h2>
+      <p data-note="static"></p>
+      <div class="row">
+        <button class="get" onclick="runTest('get-root', 'GET', '/')">GET /</button>
+        <button class="get" onclick="runTest('get-self', 'GET', '/soutenance.html')">GET cette page</button>
+        <button class="neutral" onclick="runTest('get-404', 'GET', '/url-qui-n-existe-pas')">URL inexistante</button>
+      </div>
+      <span class="expect" data-expect="get-root,get-self,get-404"></span>
+    </section>
+
+    <section class="card">
+      <h2>2. Autoindex</h2>
+      <p data-note="autoindex"></p>
+      <div class="row">
+        <button class="get" onclick="runTest('autoindex', 'GET', '/uploads/')">GET /uploads/</button>
+        <button class="get" onclick="runTest('autoindex-noslash', 'GET', '/uploads', { redirect: 'manual' })">Sans slash</button>
+        <a class="link-button neutral" href="/uploads/" target="_blank">Ouvrir le listing</a>
+      </div>
+      <span class="expect" data-expect="autoindex,autoindex-noslash"></span>
+    </section>
+
+    <section class="card">
+      <h2>3. POST body + limite de taille</h2>
+      <p data-note="post"></p>
+      <textarea id="postBody">Bonjour depuis la page Webserv !</textarea>
+      <div class="row">
+        <button class="post" onclick="runTest('post-body', 'POST', '/post_body', { bodyFrom: 'postBody', type: 'text/plain' })">POST body</button>
+        <button class="neutral" onclick="runTest('post-big', 'POST', '/post_body', { body: bigBody(150), type: 'text/plain' })">POST 150 octets</button>
+      </div>
+      <span class="expect" data-expect="post-body,post-big"></span>
+    </section>
+
+    <section class="card">
+      <h2>4. Upload → GET → DELETE</h2>
+      <p data-note="upload"></p>
+      <input id="fileInput" type="file">
+      <div class="row">
+        <button class="post" onclick="uploadFile()">POST upload</button>
+        <button class="get" onclick="uploadedFile('upload-get', 'GET')">GET fichier</button>
+        <button class="delete" onclick="uploadedFile('upload-delete', 'DELETE')">DELETE fichier</button>
+      </div>
+      <div class="hint" id="uploadHint">Aucun fichier sélectionné.</div>
+      <span class="expect" data-expect="upload,upload-get,upload-delete"></span>
+    </section>
+
+    <section class="card">
+      <h2>5. CGI Python</h2>
+      <p data-note="cgi"></p>
+      <textarea id="cgiBody">message envoyé au CGI</textarea>
+      <div class="row">
+        <button class="get" onclick="runTest('cgi-get', 'GET', '/test.py')">CGI GET</button>
+        <button class="post" onclick="runTest('cgi-post', 'POST', '/test.py', { bodyFrom: 'cgiBody', type: 'text/plain' })">CGI POST</button>
+      </div>
+      <span class="expect" data-expect="cgi-get,cgi-post"></span>
+    </section>
+
+    <section class="card">
+      <h2>6. Redirection</h2>
+      <p data-note="redirect"></p>
+      <div class="row">
+        <button class="neutral" onclick="runTest('redirect-manual', 'GET', '/redirect', { redirect: 'manual' })">301 brut</button>
+        <button class="get" onclick="runTest('redirect-follow', 'GET', '/redirect', { redirect: 'follow' })">Suivre la redirection</button>
+        <a class="link-button neutral" href="/redirect">Ouvrir /redirect</a>
+      </div>
+      <span class="expect" data-expect="redirect-manual,redirect-follow"></span>
+    </section>
+
+    <section class="card">
+      <h2>7. Méthodes refusées</h2>
+      <p data-note="methods"></p>
+      <div class="row">
+        <button class="delete" onclick="runTest('delete-index', 'DELETE', '/index.html')">DELETE /index.html</button>
+        <button class="neutral" onclick="runTest('head-root', 'HEAD', '/')">HEAD /</button>
+        <button class="neutral" onclick="runTest('toto', 'TOTO', '/')">Méthode TOTO</button>
+      </div>
+      <span class="expect" data-expect="delete-index,head-root,toto"></span>
+    </section>
+
+    <section class="card">
+      <h2>8. Sécurité</h2>
+      <p data-note="security"></p>
+      <div class="row">
+        <button class="neutral" onclick="runTest('traversal', 'GET', '/%2e%2e/%2e%2e/etc/passwd')">Traversal encodé</button>
+        <button class="neutral" onclick="runTest('traversal-plain', 'GET', '/uploads/secret/../../../Makefile')">../ classique</button>
+        <button class="neutral" onclick="clearConsole()">Effacer la console</button>
+      </div>
+      <span class="expect" data-expect="traversal,traversal-plain"></span>
+    </section>
+  </main>
+
+  <section class="cmd">
+    <div class="card">
+      <h2>À faire au terminal (le navigateur ne peut pas)</h2>
+      <p>Le navigateur interdit de choisir le header <code>Host</code>, et un autre port est une autre origine (bloquée par CORS). Clique pour copier la commande.</p>
+      <ul id="cmdList"></ul>
+    </div>
+  </section>
+
+  <section class="console-wrap">
+    <div class="console">
+      <div class="console-head">
+        <strong>Résultat HTTP</strong>
+        <span id="lastStatus">prêt</span>
+      </div>
+      <pre id="output">Clique sur un test pour envoyer une requête.</pre>
+    </div>
+  </section>
+
+  <footer>Webserv — Projet 42</footer>
+
+  <script>
+    var output = document.getElementById('output');
+    var lastStatus = document.getElementById('lastStatus');
+    var fileInput = document.getElementById('fileInput');
+    var uploadHint = document.getElementById('uploadHint');
+    var configBadge = document.getElementById('configBadge');
+    var profileSelect = document.getElementById('profileSelect');
+    var profileInfo = document.getElementById('profileInfo');
+    var lastUploadedName = '';
+
+    /* ------------------------------------------------------------------
+       Profils : un par fichier de config. Les codes attendus viennent
+       directement des location / allow_methods de chaque config.
+       ------------------------------------------------------------------ */
+
+    var NOTES = {
+      static: "Le fichier d'index, cette page elle-même, et une URL inexistante.",
+      autoindex: "<code>autoindex on</code> : le listing est généré par le serveur. Sans le <code>/</code> final, il doit d'abord répondre 301.",
+      upload: "Le fichier part en <code>multipart/form-data</code> vers <code>/uploads</code>. Il est ensuite relisible sous son propre nom.",
+      cgi: "<code>cgi_pass .py</code> exécute <code>www/test.py</code>. En POST, le body est transmis au script sur son entrée standard.",
+      security: "Remontée de dossier, y compris encodée en <code>%2e%2e</code> : le serveur décode avant de vérifier, donc il ne sort jamais de son root."
+    };
+
+    var PROFILES = {
+      eval: {
+        label: 'config/eval.conf',
+        summary: "<strong>config/eval.conf</strong> — la config de soutenance : 3 serveurs (8080 &times; 2 <code>server_name</code>, 8081), page d'erreur 404 personnalisée, redirection, limite de body sur <code>/post_body</code>, DELETE autorisé sur <code>/uploads</code>.",
+        expect: {
+          'get-root': [200], 'get-self': [200], 'get-404': [404],
+          'autoindex': [200], 'autoindex-noslash': [301],
+          'post-body': [200], 'post-big': [413],
+          'upload': [201], 'upload-get': [200], 'upload-delete': [204],
+          'cgi-get': [200], 'cgi-post': [200],
+          'redirect-manual': [301], 'redirect-follow': [200],
+          'delete-index': [405], 'head-root': [405], 'toto': [405, 501, 400],
+          'traversal': [403], 'traversal-plain': [403, 404]
+        },
+        notes: {
+          static: "Le fichier d'index, cette page elle-même, et une URL inexistante qui doit servir la page d'erreur personnalisée <code>errors/404.html</code>.",
+          post: "<code>location /post_body</code> n'a pas d'<code>upload_store</code> : le serveur renvoie simplement le body reçu. Sa limite est de <strong>100 octets</strong>, au-delà c'est un 413.",
+          redirect: "<code>location /redirect</code> fait un <code>return 301 /</code>. En mode « manuel » le navigateur masque le détail : c'est l'onglet Réseau qui montre le 301 et son header <code>Location</code>.",
+          methods: "<code>location /</code> n'autorise que GET et POST — HEAD compris est donc refusé. Toute autre méthode, même inventée, doit être rejetée proprement sans faire tomber le serveur."
+        },
+        commands: ['host-alt', 'port-8081', 'host-unknown', 'delete-curl', 'chunked', 'raw', 'malformed', 'siege']
+      },
+
+      'default': {
+        label: 'config/default.conf',
+        summary: "<strong>config/default.conf</strong> — un seul serveur, un seul <code>location /</code> qui a un <code>upload_store</code>. Conséquence : <em>tout</em> POST, quelle que soit l'URL, écrit un fichier dans <code>www/uploads</code>. Pas de redirection, pas de limite de body, DELETE non autorisé.",
+        expect: {
+          'get-root': [200], 'get-self': [200], 'get-404': [404],
+          'autoindex': [200], 'autoindex-noslash': [301],
+          'post-body': [201], 'post-big': [201],
+          'upload': [201], 'upload-get': [200], 'upload-delete': [405],
+          'cgi-get': [200], 'cgi-post': [200],
+          'redirect-manual': [404], 'redirect-follow': [404],
+          'delete-index': [405], 'head-root': [200], 'toto': [405, 501, 400],
+          'traversal': [403], 'traversal-plain': [403, 404]
+        },
+        notes: {
+          static: "Le fichier d'index, cette page elle-même, et une URL inexistante — pas de <code>error_page</code> ici, donc c'est la page 404 par défaut du serveur.",
+          post: "Ici <code>location /</code> matche <code>/post_body</code> par préfixe <em>et</em> possède un <code>upload_store</code> : le body est écrit dans <code>www/uploads/post_body</code> et la réponse est un 201. Pas de <code>client_max_body_size</code>, donc 150 octets passent aussi.",
+          redirect: "Aucun <code>location /redirect</code> dans cette config : l'URL retombe sur <code>location /</code> et le fichier n'existe pas, donc 404. C'est <code>eval.conf</code> qui porte la redirection.",
+          methods: "<code>location /</code> autorise GET, HEAD et POST. HEAD passe donc, DELETE et les méthodes inconnues sont refusées."
+        },
+        commands: ['delete-curl', 'chunked', 'raw', 'malformed', 'siege']
+      }
+    };
+
+    var COMMANDS = {
+      'host-alt': ["Autre server_name, même port (root www_alt)",
+                   'curl -s -D - -H "Host: alt_local" http://localhost:8080/ -o /dev/null'],
+      'port-8081': ["Deuxième port",
+                    'curl -s -D - http://localhost:8081/ -o /dev/null'],
+      'host-unknown': ["Host inconnu : premier serveur par défaut",
+                       'curl -s -D - -H "Host: nimportequoi" http://localhost:8080/ -o /dev/null'],
+      'delete-curl': ["DELETE sur un fichier uploadé",
+                      'curl -i -X DELETE http://localhost:8080/uploads/monfichier.txt'],
+      'chunked': ["Body en chunked",
+                  'curl -i -H "Transfer-Encoding: chunked" -d "hello" http://localhost:8080/post_body'],
+      'raw': ["Requête brute",
+              'printf "GET / HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n" | nc localhost 8080'],
+      'malformed': ["Requête malformée",
+                    'printf "BADREQUEST\\r\\n\\r\\n" | nc localhost 8080'],
+      'siege': ["Test de charge (doit rester au-dessus de 99.5%)",
+                'siege -b -t30S http://localhost:8080/']
+    };
+
+    var activeProfile = 'eval';
+
+    function profile() {
+      return PROFILES[activeProfile];
+    }
+
+    function expectedFor(testId) {
+      return profile().expect[testId] || [];
+    }
+
+    /* ---------- rendu du profil ---------- */
+
+    function applyProfile(name) {
+      activeProfile = name;
+      var p = profile();
+
+      profileSelect.value = name;
+      profileInfo.innerHTML = p.summary;
+
+      var paragraphs = document.querySelectorAll('[data-note]');
+      for (var i = 0; i < paragraphs.length; i++) {
+        var key = paragraphs[i].getAttribute('data-note');
+        paragraphs[i].innerHTML = (p.notes && p.notes[key]) || NOTES[key] || '';
+      }
+
+      var badges = document.querySelectorAll('[data-expect]');
+      for (var j = 0; j < badges.length; j++) {
+        var ids = badges[j].getAttribute('data-expect').split(',');
+        var parts = [];
+        for (var k = 0; k < ids.length; k++) {
+          parts.push((p.expect[ids[k]] || []).join(' ou '));
+        }
+        badges[j].textContent = 'attendu : ' + parts.join(' — ');
+      }
+
+      buildCommands(p.commands);
+    }
+
+    function buildCommands(keys) {
+      var list = document.getElementById('cmdList');
+      list.innerHTML = '';
+      for (var i = 0; i < keys.length; i++) {
+        (function (entry) {
+          if (!entry) return;
+          var li = document.createElement('li');
+          var label = document.createElement('span');
+          label.textContent = entry[0];
+          var code = document.createElement('code');
+          code.textContent = entry[1];
+          var copy = document.createElement('button');
+          copy.className = 'neutral';
+          copy.textContent = 'Copier';
+          copy.onclick = function () {
+            navigator.clipboard.writeText(entry[1]).then(function () {
+              copy.textContent = 'Copié !';
+              setTimeout(function () { copy.textContent = 'Copier'; }, 1200);
+            });
+          };
+          li.appendChild(label);
+          li.appendChild(code);
+          li.appendChild(copy);
+          list.appendChild(li);
+        })(COMMANDS[keys[i]]);
+      }
+    }
+
+    (function buildSelect() {
+      for (var name in PROFILES) {
+        if (!PROFILES.hasOwnProperty(name)) continue;
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = PROFILES[name].label;
+        profileSelect.appendChild(opt);
+      }
+      profileSelect.onchange = function () {
+        applyProfile(profileSelect.value);
+        setBadge('config : ' + profile().label + ' (choisie à la main)', undefined, 'warn');
+      };
+    })();
+
+    /* ---------- détection automatique ----------
+       GET /redirect en mode suivi : seul eval.conf a un location /redirect,
+       donc seul lui produit une redirection effective. Aucun effet de bord. */
+
+    function detectProfile() {
+      fetch('/redirect', { method: 'GET', redirect: 'follow', cache: 'no-store' })
+        .then(function (response) {
+          var detected = (response.redirected || response.status === 301) ? 'eval' : 'default';
+          applyProfile(detected);
+          configBadge.className = 'badge';
+          configBadge.textContent = 'config détectée : ' + profile().label;
+        })
+        .catch(function () {
+          applyProfile('eval');
+          configBadge.className = 'badge warn';
+          configBadge.textContent = 'config non détectée — choisis-la à la main';
+        });
+    }
+
+    /* ---------- moteur de requêtes ---------- */
+
+    function val(id) {
+      return document.getElementById(id).value;
+    }
+
+    function bigBody(size) {
+      var s = '';
+      while (s.length < size) s += 'A';
+      return s;
+    }
+
+    function formatHeaders(headers) {
+      var text = '';
+      headers.forEach(function (value, key) {
+        text += key + ': ' + value + '\n';
+      });
+      return text || '(aucun header exposé par le navigateur)';
+    }
+
+    function setBadge(text, ok, cssClass) {
+      lastStatus.textContent = text;
+      lastStatus.className = cssClass || ((ok === undefined) ? '' : (ok ? 'ok' : 'ko'));
+    }
+
+    function runTest(testId, method, path, options) {
+      options = options || {};
+      if (options.bodyFrom) options.body = val(options.bodyFrom);
+      return run(method, path, expectedFor(testId), options);
+    }
+
+    function run(method, path, expected, options) {
+      options = options || {};
+      expected = expected || [];
+      setBadge(method + ' ' + path);
+      output.textContent = 'Envoi de ' + method + ' ' + path + ' ...';
+
+      var headers = {};
+      if (options.type) headers['Content-Type'] = options.type;
+
+      var start = Date.now();
+
+      return fetch(path, {
+        method: method,
+        headers: headers,
+        body: options.body,
+        redirect: options.redirect || 'follow',
+        cache: 'no-store'
+      }).then(function (response) {
+        var opaque = (response.type === 'opaqueredirect');
+        return (opaque ? Promise.resolve('') : response.text()).then(function (body) {
+          var elapsed = Date.now() - start;
+          var shown = body.length > 6000
+            ? body.slice(0, 6000) + '\n\n[... réponse tronquée dans cette console ...]'
+            : body;
+
+          var statusLine = opaque
+            ? 'redirection interceptée (code masqué par le navigateur)'
+            : response.status + ' ' + response.statusText;
+
+          var ok = opaque ? undefined : (expected.indexOf(response.status) !== -1);
+          var verdict = '';
+          if (expected.length) {
+            if (ok === undefined) {
+              verdict = '~ attendu ' + expected.join(' ou ') +
+                        ' : ouvre l\'onglet Réseau pour voir le code et le header Location\n';
+            } else {
+              verdict = (ok ? '[OK] ' : '[ECHEC] ') + 'attendu ' +
+                        expected.join(' ou ') + ', obtenu ' + response.status +
+                        '   (selon ' + profile().label + ')\n';
+            }
+          }
+
+          setBadge(opaque ? 'redirection' : statusLine, ok);
+          output.textContent =
+            '> ' + method + ' ' + path + '\n' +
+            (options.body ? '> body envoyé : ' + options.body.length + ' octets\n' : '') +
+            '\n< HTTP ' + statusLine + '   (' + elapsed + ' ms)\n' +
+            (response.redirected ? '< redirigé vers : ' + response.url + '\n' : '') +
+            verdict +
+            '\n--- HEADERS ---\n' + formatHeaders(response.headers) +
+            '\n--- BODY ---\n' + (shown || '(body vide)');
+          return response;
+        });
+      }).catch(function (error) {
+        setBadge('erreur réseau', false);
+        output.textContent =
+          '> ' + method + ' ' + path + '\n\n' +
+          'Erreur : ' + error.message + '\n\n' +
+          'Si le serveur a fermé la connexion sans répondre, le navigateur ne montre rien ici.\n' +
+          'Rejoue le test en curl pour voir la réponse brute.';
+        return null;
+      });
+    }
+
+    /* ---------- upload ---------- */
+
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files.length) {
+        lastUploadedName = fileInput.files[0].name;
+        uploadHint.textContent = 'Fichier sélectionné : ' + lastUploadedName;
+      } else {
+        uploadHint.textContent = 'Aucun fichier sélectionné.';
+      }
+    });
+
+    function uploadFile() {
+      if (!fileInput.files.length) {
+        setBadge('aucun fichier', false);
+        output.textContent = 'Sélectionne d\'abord un fichier à uploader.';
+        return;
+      }
+
+      var file = fileInput.files[0];
+      lastUploadedName = file.name;
+
+      var form = new FormData();
+      form.append('file', file, file.name);
+
+      var expected = expectedFor('upload');
+      setBadge('POST /uploads');
+      output.textContent = 'Upload de ' + file.name + ' ...';
+
+      var start = Date.now();
+
+      fetch('/uploads', { method: 'POST', body: form, cache: 'no-store' })
+        .then(function (response) {
+          return response.text().then(function (body) {
+            var elapsed = Date.now() - start;
+            var ok = expected.indexOf(response.status) !== -1;
+            setBadge(response.status + ' ' + response.statusText, ok);
+            output.textContent =
+              '> POST /uploads\n' +
+              '> fichier : ' + file.name + ' (' + file.size + ' octets, multipart/form-data)\n' +
+              '\n< HTTP ' + response.status + ' ' + response.statusText + '   (' + elapsed + ' ms)\n' +
+              (ok ? '[OK] ' : '[ECHEC] ') + 'attendu ' + expected.join(' ou ') +
+              ', obtenu ' + response.status + '   (selon ' + profile().label + ')\n' +
+              '\n--- HEADERS ---\n' + formatHeaders(response.headers) +
+              '\n--- BODY ---\n' + (body || '(body vide)') +
+              '\n\nLe fichier doit maintenant être dans www/uploads/ et visible dans /uploads/.';
+          });
+        })
+        .catch(function (error) {
+          setBadge('erreur réseau', false);
+          output.textContent = 'Erreur upload : ' + error.message;
+        });
+    }
+
+    function uploadedFile(testId, method) {
+      if (!lastUploadedName) {
+        setBadge('aucun fichier', false);
+        output.textContent = 'Sélectionne ou uploade d\'abord un fichier.';
+        return;
+      }
+      runTest(testId, method, '/uploads/' + encodeURIComponent(lastUploadedName));
+    }
+
+    function clearConsole() {
+      setBadge('prêt');
+      output.textContent = 'Console effacée.';
+    }
+
+    applyProfile('eval');
+    detectProfile();
+  </script>
+</body>
+</html>
