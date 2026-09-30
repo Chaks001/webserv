@@ -54,11 +54,13 @@ Without an argument, `config/default.conf` is used. Stop the server with `Ctrl+C
 - **CGI**: chosen by file extension, run with a CGI/1.1 environment from the script's own directory, with the request body on standard input. A script that fails gives a 500, and a script inactive for 30 seconds is killed and gives a 504.
 - **Timeouts**: a client connection inactive for 30 seconds is closed, so a request never hangs indefinitely.
 - **Robust parsing**: malformed requests get 400, 413, 414, 431 or 505 instead of stalling. Paths are percent-decoded before routing, and any attempt to leave the root, even encoded, gets 403.
-- **Validated configuration**: duplicate servers, invalid numbers and invalid addresses stop the server at startup with an explicit message.
+- **Validated configuration**: duplicate servers, a directive repeated in the same block, a missing `;`, invalid values and invalid addresses stop the server at startup with an explicit message.
 
 ## Configuration reference
 
 A configuration contains one or more `server` blocks. Each can hold `location` blocks, and the location with the longest matching prefix handles the request.
+
+Each directive takes one value, ends with `;` and appears at most once per block. Only `location`, `error_page` and `cgi_pass` can be repeated, each time with a different path, status code or extension. Anything else is refused at startup rather than guessed.
 
 ```nginx
 server {
@@ -169,6 +171,7 @@ Then type `GET / HTTP/1.1`, `Host: localhost`, and an empty line.
 - Pipelining is not supported: a connection handles one request at a time, and bytes sent after a complete request are discarded.
 - Request bodies are kept in memory, so many simultaneous large uploads use a lot of RAM.
 - Unknown configuration directives are ignored.
+- Unlike nginx, a directive cannot list several values: one port per `listen`, one name per `server_name`, one file per `index`, one status code per `error_page`. Listening on several ports or answering to several names takes several `server` blocks.
 
 ## Resources
 
@@ -187,7 +190,7 @@ We used two AI assistants: ChatGPT (OpenAI) throughout the project, and Claude (
 
 - **Learning and understanding**: we spent a lot of time asking ChatGPT to explain HTTP, sockets, `poll()`, CGI and each part of our own code, until we understood how everything fits together.
 - **Review and debugging**: finding and fixing bugs, and making the server more robust against malformed or unusual requests.
-- **Some features**: help with file uploads from HTML forms and with timeouts.
+- **Some features**: help with file uploads from HTML forms.
 - **Testing**: writing test scripts and running load and memory tests. These scripts are not part of this repository.
 - **Documentation**: a first draft of this README.
 
