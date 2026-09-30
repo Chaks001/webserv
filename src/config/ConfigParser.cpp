@@ -102,6 +102,12 @@ void ConfigParser::parseServerBlock(std::stringstream &ss) {
 
     while (ss >> token) {
         if (token == "}") {
+            for (size_t i = 0; i < server.locations.size(); ++i) {
+                const LocationConfig &loc = server.locations[i];
+                if (server.root.empty() && loc.root.empty() && loc.return_code == 0) {
+                    throw std::runtime_error("root is missing for location " + loc.path);
+                }
+            }
             _servers.push_back(server);
             return;
         } else if (token == "listen") {
@@ -138,6 +144,8 @@ void ConfigParser::parseServerBlock(std::stringstream &ss) {
         } else if (token == "location") {
             parseLocationBlock(ss, server);
             rejectDuplicate(seen, "location " + server.locations.back().path, "server");
+        } else {
+            throw std::runtime_error("Unknown directive in server block: " + token);
         }
     }
     throw std::runtime_error("Unexpected end of file inside server block");
@@ -195,6 +203,8 @@ void ConfigParser::parseLocationBlock(std::stringstream &ss, ServerConfig &serve
             rejectDuplicate(seen, token, "location");
             loc.client_max_body_size = parseNumericValue(ss, "client_max_body_size");
             loc.has_client_max_body_size = true;
+        } else {
+            throw std::runtime_error("Unknown directive in location block: " + token);
         }
     }
     throw std::runtime_error("Unexpected end of file inside location block");
