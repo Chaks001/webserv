@@ -54,13 +54,13 @@ Without an argument, `config/default.conf` is used. Stop the server with `Ctrl+C
 - **CGI**: chosen by file extension, run with a CGI/1.1 environment from the script's own directory, with the request body on standard input. A script that fails gives a 500, and a script inactive for 30 seconds is killed and gives a 504.
 - **Timeouts**: a client connection inactive for 30 seconds is closed, so a request never hangs indefinitely.
 - **Robust parsing**: malformed requests get 400, 413, 414, 431 or 505 instead of stalling. Paths are percent-decoded before routing, and any attempt to leave the root, even encoded, gets 403.
-- **Validated configuration**: duplicate servers, a directive repeated in the same block, a missing `;`, invalid values and invalid addresses stop the server at startup with an explicit message.
+- **Validated configuration**: duplicate servers, unknown or repeated directives, a missing `;` or `root`, invalid values and invalid addresses stop the server at startup with an explicit message.
 
 ## Configuration reference
 
 A configuration contains one or more `server` blocks. Each can hold `location` blocks, and the location with the longest matching prefix handles the request.
 
-Each directive takes one value, ends with `;` and appears at most once per block. Only `location`, `error_page` and `cgi_pass` can be repeated, each time with a different path, status code or extension. Anything else is refused at startup rather than guessed.
+Each directive takes one value, ends with `;` and appears at most once per block. Only `location`, `error_page` and `cgi_pass` can be repeated, each time with a different path, status code or extension. Unknown directives are refused, and every location that serves files needs a `root`, its own or the server's. A configuration that breaks these rules is refused at startup rather than guessed.
 
 ```nginx
 server {
@@ -96,9 +96,9 @@ server {
 | `listen <port>` | server | Port to listen on, from 1 to 65535. |
 | `host <address>` | server | IPv4 address to bind. `0.0.0.0` listens on every interface; anything that is not an IPv4 address is refused at startup. |
 | `server_name <name>` | server | Name compared with the `Host` header of each request. |
-| `root <path>` | server, location | Directory the requested paths are resolved in. |
+| `root <path>` | server, location | Directory the requested paths are resolved in. Required for every location that serves files. |
 | `index <file>` | server, location | File served when a directory is requested. |
-| `error_page <code> <path>` | server | Custom page for a status code, relative to `root`. |
+| `error_page <code> <path>` | server | Custom page for a status code, relative to `root` and written without a leading `/`. |
 | `client_max_body_size <bytes>` | server, location | Largest accepted request body. |
 | `allow_methods <methods>` | location | Accepted methods; the others get 405. |
 | `autoindex on\|off` | location | Directory listing when no index file exists. |
@@ -170,7 +170,7 @@ Then type `GET / HTTP/1.1`, `Host: localhost`, and an empty line.
 
 - Pipelining is not supported: a connection handles one request at a time, and bytes sent after a complete request are discarded.
 - Request bodies are kept in memory, so many simultaneous large uploads use a lot of RAM.
-- Unknown configuration directives are ignored.
+- Comments are not supported in the configuration: a `#` is refused as an unknown directive.
 - Unlike nginx, a directive cannot list several values: one port per `listen`, one name per `server_name`, one file per `index`, one status code per `error_page`. Listening on several ports or answering to several names takes several `server` blocks.
 
 ## Resources
