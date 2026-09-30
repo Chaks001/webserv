@@ -438,7 +438,7 @@ std::string Router::generateAutoindex(const std::string &path, const std::string
         while ((ent = readdir(dir)) != NULL) {
             std::string name = ent->d_name;
             if (name == ".") continue;
-            ss << "<a href=\"" << (uri == "/" ? "" : uri) << "/" << name << "\">" << name << "</a><br>";
+            ss << "<a href=\"" << uri << name << "\">" << name << "</a><br>";
         }
         closedir(dir);
     }
