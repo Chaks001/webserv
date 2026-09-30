@@ -3,6 +3,15 @@
 #include <stdexcept>
 #include <cctype>
 #include <cstdlib>
+#include <set>
+
+namespace {
+    void rejectDuplicate(std::set<std::string> &seen, const std::string &directive, const std::string &block) {
+        if (!seen.insert(directive).second) {
+            throw std::runtime_error(directive + " is defined more than once in the same " + block + " block");
+        }
+    }
+}
 
 ConfigParser::ConfigParser(const std::string &path) : _configPath(path) {
     parseFile();
@@ -51,11 +60,12 @@ std::string ConfigParser::parseValue(std::stringstream &ss) {
     ss >> value;
     if (!value.empty() && value[value.size() - 1] == ';') {
         value.erase(value.size() - 1);
-    } else if (value.find(';') != std::string::npos) {
-        value.erase(value.find(';'));
     } else {
         std::string semi;
         ss >> semi;
+        if (semi != ";") {
+            throw std::runtime_error("Expected ';' after " + value);
+        }
     }
     return value;
 }
@@ -88,12 +98,14 @@ void ConfigParser::parseFile() {
 void ConfigParser::parseServerBlock(std::stringstream &ss) {
     ServerConfig server;
     std::string token;
+    std::set<std::string> seen;
 
     while (ss >> token) {
         if (token == "}") {
             _servers.push_back(server);
             return;
         } else if (token == "listen") {
+            rejectDuplicate(seen, token, "server");
             unsigned long parsedPort = parseNumericValue(ss, "listen");
             if (parsedPort < 1 || parsedPort > 65535) {
                 std::stringstream oss;
@@ -102,21 +114,30 @@ void ConfigParser::parseServerBlock(std::stringstream &ss) {
             }
             server.port = static_cast<int>(parsedPort);
         } else if (token == "server_name") {
+            rejectDuplicate(seen, token, "server");
             server.server_name = parseValue(ss);
         } else if (token == "host") {
+            rejectDuplicate(seen, token, "server");
             server.host = parseValue(ss);
         } else if (token == "root") {
+            rejectDuplicate(seen, token, "server");
             server.root = parseValue(ss);
         } else if (token == "index") {
+            rejectDuplicate(seen, token, "server");
             server.index = parseValue(ss);
         } else if (token == "client_max_body_size") {
+            rejectDuplicate(seen, token, "server");
             server.client_max_body_size = parseNumericValue(ss, "client_max_body_size");
         } else if (token == "error_page") {
-            int code;
+            int code = 0;
             ss >> code;
+            std::stringstream key;
+            key << "error_page " << code;
+            rejectDuplicate(seen, key.str(), "server");
             server.error_pages[code] = parseValue(ss);
         } else if (token == "location") {
             parseLocationBlock(ss, server);
+            rejectDuplicate(seen, "location " + server.locations.back().path, "server");
         }
     }
     throw std::runtime_error("Unexpected end of file inside server block");
@@ -130,18 +151,26 @@ void ConfigParser::parseLocationBlock(std::stringstream &ss, ServerConfig &serve
     if (brace != "{") throw std::runtime_error("Expected '{' after location path");
 
     std::string token;
+    std::set<std::string> seen;
     while (ss >> token) {
         if (token == "}") {
             server.locations.push_back(loc);
             return;
         } else if (token == "root") {
+            rejectDuplicate(seen, token, "location");
             loc.root = parseValue(ss);
         } else if (token == "index") {
+            rejectDuplicate(seen, token, "location");
             loc.index = parseValue(ss);
         } else if (token == "autoindex") {
+            rejectDuplicate(seen, token, "location");
             std::string val = parseValue(ss);
+            if (val != "on" && val != "off") {
+                throw std::runtime_error("autoindex must be on or off, got: " + val);
+            }
             loc.autoindex = (val == "on");
         } else if (token == "allow_methods") {
+            rejectDuplicate(seen, token, "location");
             while (ss >> token) {
                 if (token.find(";") != std::string::npos) {
                     token.erase(token.find(";"));
@@ -151,15 +180,19 @@ void ConfigParser::parseLocationBlock(std::stringstream &ss, ServerConfig &serve
                 loc.allow_methods.push_back(token);
             }
         } else if (token == "return") {
+            rejectDuplicate(seen, token, "location");
             ss >> loc.return_code;
             loc.return_url = parseValue(ss);
         } else if (token == "upload_store") {
+            rejectDuplicate(seen, token, "location");
             loc.upload_store = parseValue(ss);
         } else if (token == "cgi_pass") {
             std::string ext;
             ss >> ext;
+            rejectDuplicate(seen, "cgi_pass " + ext, "location");
             loc.cgi_pass[ext] = parseValue(ss);
         } else if (token == "client_max_body_size") {
+            rejectDuplicate(seen, token, "location");
             loc.client_max_body_size = parseNumericValue(ss, "client_max_body_size");
             loc.has_client_max_body_size = true;
         }
