@@ -167,7 +167,7 @@ bool WebServer::isShutdownRequested() {
 void WebServer::setupServers() {
     std::map<std::pair<std::string, int>, std::vector<ServerConfig> > grouped;
     for (size_t i = 0; i < _configs.size(); ++i) {
-        std::string host = _configs[i].host.empty() ? "0.0.0.0" : _configs[i].host;
+        std::string host = _configs[i].host;
         grouped[std::make_pair(host, _configs[i].port)].push_back(_configs[i]);
     }
 
